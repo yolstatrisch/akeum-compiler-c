@@ -1,2 +1,2 @@
-# choon-compiler-c
+# akeum-compiler-c
 WIP
