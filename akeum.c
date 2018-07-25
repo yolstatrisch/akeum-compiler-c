@@ -34,14 +34,14 @@ typedef struct header{
 
 typedef struct line{
     int line;
-    HEADER header;
+    HEADER *header;
     CODE *head, *tail;
     struct line *next;
 } LINE;
 
 typedef struct program{
     int value, length;
-    LINE *line;
+    LINE *line, *tail;
 } PROGRAM;
 
 typedef struct operation{
@@ -62,16 +62,34 @@ typedef struct stat{
 void openFile(FILE**, char*);
 int readLine(FILE**, LINE**);
 void printLine(LINE*);
+void initProg(PROGRAM*);
 void printProgram(PROGRAM*);
+void addLine(PROGRAM*, LINE*);
+void addToLine(LINE*, LINE*);
 
 void printStatus(STATUS);
 
+LINE* getLine(PROGRAM*, char);
+
 STATUS getStatus(int, int, int);
-STATUS getHeader(PROGRAM*, LINE*);
+STATUS getHeader(PROGRAM*, LINE*, HEADER*);
 STATUS getTimeSig(PROGRAM*, LINE*);
 
 void printProgram(PROGRAM *p){
+    LINE *l = p -> line;
+    CODE *c = l -> head;
     printf("Value: %d\nLength: %d\n", p -> value, p -> length);
+
+    while(l != NULL){
+        while(c != NULL){
+            printf("%c", c -> c);
+            c = c -> next;
+        }
+        l = l -> next;
+        if(l != NULL){
+            c = l -> head;
+        }
+    }
 }
 
 void printStatus(STATUS stat){
@@ -84,24 +102,69 @@ void printStatus(STATUS stat){
 int main(int argc, char *argv[]){
     FILE *fp;
     PROGRAM p;
-    LINE *line;
+    LINE *line, *temp;
     CODE *ptr;
     STATUS stat;
+    HEADER *head;
 
     openFile(&fp, argv[1]);
+    initProg(&p);
 
     while(readLine(&fp, &line)){
+        printStatus(getHeader(&p, line, head));
+
         if(line -> line == 0){
-            stat = getHeader(&p, line);
-            printStatus(stat);
+            printStatus(getTimeSig(&p, line));
         }
-        printLine(line);
+        temp = getLine(&p, line -> header -> clef);
+        if(temp != NULL){
+            addToLine(temp, line);
+        }
+        else{
+            addLine(&p, line);
+        }
+        //printLine(line);
     }
 
     printProgram(&p);
 
     fclose(fp);
     return 1;
+}
+
+LINE* getLine(PROGRAM *p, char c){
+    LINE *ptr = p -> line;
+
+    while(ptr != NULL){
+        if(ptr -> header -> clef == c){
+            return ptr;
+        }
+        ptr = ptr -> next;
+    }
+
+    return NULL;
+}
+
+void initProg(PROGRAM *p){
+    p -> length = 4;
+    p -> value = 4;
+    p -> line = p -> tail = NULL;
+}
+
+void addLine(PROGRAM *p, LINE *l){
+    if(p -> line == NULL){
+        p -> line = p -> tail = l;
+    }
+    else{
+        p -> tail -> next = l;
+        p -> tail = l;
+    }
+}
+
+void addToLine(LINE *t, LINE *l){
+    t -> tail -> next = l -> head;
+    t -> tail = l -> tail;
+    free(l);
 }
 
 void openFile(FILE **fp, char *fn){
@@ -121,6 +184,7 @@ int readLine(FILE **fp, LINE **line){
     lineTemp = (LINE*)malloc(sizeof(LINE));
     lineTemp -> head = NULL;
     lineTemp -> tail = NULL;
+    lineTemp -> next = NULL;
 
     do{
         c = fgetc(*fp);
@@ -167,61 +231,71 @@ STATUS getStatus(int s, int l, int c){
     return st;
 }
 
-STATUS getHeader(PROGRAM *p, LINE *l){
+STATUS getHeader(PROGRAM *p, LINE *l, HEADER *h){
     CODE *ptr;
     int c = 0, s = 0;
+    h = (HEADER*)malloc(sizeof(HEADER));
+    h -> clef = 'G';
+    h -> keysig = 0;
 
     ptr = l -> head;
 
     if(ptr -> c != '|'){
         return getStatus(ERR_HEAD_NONE, l -> line, c);
     }
+
     ptr = ptr -> next;
     c++;
+
     if(ptr -> c < 65 || ptr -> c > 90){
         return getStatus(ERR_HEAD_CLEF, l -> line, c);
     }
+    else{
+        h -> clef = ptr -> c;
+    }
+
     ptr = ptr -> next;
     c++;
+
     while(ptr -> c == '#'){
         ptr = ptr -> next;
         s++;
         c++;
     }
-    return getTimeSig(p, l);
+    h -> keysig = s;
+    l -> header = h;
+    l -> head = ptr;
+
+    return getStatus(SUCCESS, l -> line, 0);
 }
 
 STATUS getTimeSig(PROGRAM *p, LINE *l){
     CODE *ptr;
     int c = 0;
 
-    p -> value = 4;
-    p -> length = 4;
     ptr = l -> head;
 
-    while(ptr -> next != NULL){
-        if(ptr -> next -> c == '-'){
-            if(ptr -> c > 48 && ptr -> c < 58){
-                p -> value = ptr -> c - 48;
+    if(ptr -> next -> c == '-'){
+        if(ptr -> c > 48 && ptr -> c < 58){
+            p -> value = ptr -> c - 48;
 
-                if(ptr -> next -> next -> c > 48 && ptr -> next -> next -> c < 58){
-                    p -> length = ptr -> next -> next -> c - 48;
-                    break;
-                }
-                else{
-                    return getStatus(ERR_HEAD_TIME_FORMAT, l -> line, c);
-                }
+            if(ptr -> next -> next -> c > 48 && ptr -> next -> next -> c < 58){
+                p -> length = ptr -> next -> next -> c - 48;
             }
             else{
                 return getStatus(ERR_HEAD_TIME_FORMAT, l -> line, c);
             }
         }
-        c++;
-        ptr = ptr -> next;
+        else{
+            return getStatus(ERR_HEAD_TIME_FORMAT, l -> line, c);
+        }
     }
-    if(ptr -> next == NULL){
+    else{
         return getStatus(ERR_HEAD_TIME_NONE, l -> line, c);
     }
 
+    l -> head = ptr -> next -> next -> next;
+
     return getStatus(SUCCESS, l -> line, 0);
 }
+
