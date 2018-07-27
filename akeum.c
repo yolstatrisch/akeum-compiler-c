@@ -14,6 +14,7 @@
 #define OP_LOOP_S 30
 #define OP_LOOP_E 31
 #define OP_RAND 50
+#define OP_REST 51
 
 #define SUCCESS 0
 #define ERR_HEAD_NONE 1
@@ -40,7 +41,7 @@ typedef struct line{
 } LINE;
 
 typedef struct program{
-    int value, length;
+    int value, length, count;
     LINE *line, *tail;
 } PROGRAM;
 
@@ -75,6 +76,8 @@ STATUS getStatus(int, int, int);
 STATUS getHeader(PROGRAM*, LINE*, HEADER*);
 STATUS getTimeSig(PROGRAM*, LINE*);
 
+STATUS programToQueue(PROGRAM*, QUEUE**);
+
 void printProgram(PROGRAM *p){
     LINE *l = p -> line;
     CODE *c = l -> head;
@@ -106,6 +109,7 @@ int main(int argc, char *argv[]){
     CODE *ptr;
     STATUS stat;
     HEADER *head;
+    QUEUE **q;
 
     openFile(&fp, argv[1]);
     initProg(&p);
@@ -123,13 +127,122 @@ int main(int argc, char *argv[]){
         else{
             addLine(&p, line);
         }
+        //free(temp);
         //printLine(line);
     }
-
-    printProgram(&p);
+    //printProgram(&p);
+    programToQueue(&p, q);
 
     fclose(fp);
     return 1;
+}
+
+void initOP(OP *op){
+    op -> op = OP_NONE;
+    op -> param = -1;
+    op -> ptr = NULL;
+    op -> next = NULL;
+}
+
+void addOP(QUEUE* q, OP *op){
+    if(q -> head == NULL){
+        q -> head = q -> tail = op;
+    }
+    else{
+        q -> tail -> next = op;
+        q -> tail = op;
+    }
+}
+
+STATUS programToQueue(PROGRAM *p, QUEUE **q){
+    LINE *l = p -> line;
+    CODE *c = l -> head;
+    q = (QUEUE**)malloc(p -> count * sizeof(QUEUE*));
+    QUEUE *ptr;
+    OP *temp;
+    int cnt = 0;
+
+    while(l != NULL){
+        q[cnt] = (QUEUE*)malloc(sizeof(QUEUE));
+        ptr = q[cnt];
+        ptr -> head = ptr -> tail = NULL;
+
+        while(c != NULL){
+            switch(c -> c){
+                case '|':
+                    temp = (OP*)malloc(sizeof(OP));
+                    initOP(temp);
+
+                    if(c -> next -> c == '|' && c -> next -> next -> c == ':'){
+                        temp -> op = OP_LOOP_S;
+                    }
+                    else{
+                        temp -> op = OP_NONE;
+                    }
+                    addOP(ptr, temp);
+                    break;
+                case ':':
+                    if(c -> next -> c == '|' && c -> next -> next -> c == ':'){
+                        temp = (OP*)malloc(sizeof(OP));
+                        initOP(temp);
+                        temp -> op = OP_LOOP_S;
+                        addOP(ptr, temp);
+                    }
+                    else{
+                        //return wrong syntax for :||
+                    }
+                    break;
+                case '+':
+                    temp = (OP*)malloc(sizeof(OP));
+                    initOP(temp);
+                    temp -> op = OP_T_UP;
+                    addOP(ptr, temp);
+                    break;
+                case '-':
+                    temp = (OP*)malloc(sizeof(OP));
+                    initOP(temp);
+                    temp -> op = OP_T_DOWN;
+                    addOP(ptr, temp);
+                    break;
+                case '.':
+                    temp = (OP*)malloc(sizeof(OP));
+                    initOP(temp);
+                    temp -> op = OP_T_SET;
+                    addOP(ptr, temp);
+                    break;
+                case '%':
+                    temp = (OP*)malloc(sizeof(OP));
+                    initOP(temp);
+                    temp -> op = OP_REST;
+                    addOP(ptr, temp);
+                    break;
+                case '~':
+                    temp = (OP*)malloc(sizeof(OP));
+                    initOP(temp);
+                    temp -> op = OP_FORK;
+                    addOP(ptr, temp);
+                    break;
+                case '=':
+                    temp = (OP*)malloc(sizeof(OP));
+                    initOP(temp);
+                    temp -> op = OP_PLAYM;
+                    addOP(ptr, temp);
+                    break;
+                case '?':
+                    temp = (OP*)malloc(sizeof(OP));
+                    initOP(temp);
+                    temp -> op = OP_RAND;
+                    addOP(ptr, temp);
+                    break;
+            }
+            c = c -> next;
+        }
+        l = l -> next;
+        if(l != NULL){
+            c = l -> head;
+        }
+        cnt++;
+    }
 }
 
 LINE* getLine(PROGRAM *p, char c){
@@ -149,6 +262,7 @@ void initProg(PROGRAM *p){
     p -> length = 4;
     p -> value = 4;
     p -> line = p -> tail = NULL;
+    p -> count = 0;
 }
 
 void addLine(PROGRAM *p, LINE *l){
@@ -159,6 +273,7 @@ void addLine(PROGRAM *p, LINE *l){
         p -> tail -> next = l;
         p -> tail = l;
     }
+    p -> count++;
 }
 
 void addToLine(LINE *t, LINE *l){
