@@ -26,7 +26,8 @@
 #define ERR_HEAD_TIME_FORMAT 4
 #define ERR_INV_COMMAND 10
 #define ERR_PLAY_LIST_EMPTY 20
-#define ERR_PLAY_OOB 20
+#define ERR_PLAY_NULL 21
+#define ERR_PLAY_OOB 22
 #define ERR_UNK -1
 
 #define MIN INT_MIN
@@ -68,8 +69,9 @@ typedef struct play{
 } PLAY;
 
 typedef struct loop{
-    NOTE *note;
-    struct loop *down;
+    int count;
+    CODE *c;
+    struct loop *next;
 } LOOP;
 
 void openFile(FILE**, char*);
@@ -187,10 +189,14 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
     int tempval = 0;
     int mode;
     NOTE *marker[26];
+    LOOP *loop;
+    NOTE *add = NULL;
+    CODE *inloop = NULL, *outloop = NULL;
 
     initMarker(marker);
 
     while(l != NULL){
+        loop = NULL;
         last = (NOTE*)malloc(sizeof(NOTE));
         last -> val = MIN;
         last -> next;
@@ -207,9 +213,11 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                 temp = (NOTE*)malloc(sizeof(NOTE));
                 if(c -> next -> c == '#'){
                     tempval++;
+                    c = c -> next;
                 }
                 else if(c -> next -> c == 'b'){
                     tempval--;
+                    c = c -> next;
                 }
                 tempval += value;
                 tempval += mode;
@@ -221,32 +229,95 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
             }
             else if(islower(c -> c)){
                 tempval = c -> c - 97;
-                marker[tempval] = last;
-                //printf("Added marker %c at %d with val %d\n", c -> c, last, last -> val);
+                if(c -> next -> c != '=' && c -> next -> next -> c != c -> c){
+                    marker[tempval] = last;
+                    //printf("Added marker %c at %d with val %d\n", c -> c, last, last -> val);
+                }
+                else{
+                    add = last;
+                }
             }
             switch(c -> c){
                 case '|':
                     if(c -> next -> c == '|' && c -> next -> next -> c == ':'){
-                        //loop start
+                        if(last -> val > 0 || last -> val == MIN){
+                            LOOP *temp = (LOOP*)malloc(sizeof(LOOP));
+                            temp -> count = last -> val - 1;
+                            temp -> c = c -> next -> next;
+                            temp -> next = NULL;
+
+                            if(loop == NULL){
+                                loop = temp;
+                            }
+                            else{
+                                temp -> next = loop;
+                                loop = temp;
+                            }
+                        }
+                        else{
+                            //printf("Skipping...\n");
+                            int e = 1;
+                            while(e){
+                                //printf("%c%c%c\n", c -> c, c -> next -> c, c -> next -> next -> c);
+                                if(c -> c == ':' && c -> next -> c == '|' && c -> next -> next -> c == '|'){
+                                    e = 0;
+                                }
+                                //printf("pass\n");
+                                c = c -> next;
+                            }
+                        }
+                        c = c -> next -> next;
                     }
                     break;
                 case ':':
-                    if(c -> next -> c == '|' && c -> next -> next -> c == ':'){
+                    if(c -> next -> c == '|' && c -> next -> next -> c == '|'){
+                        if(loop -> count > 0){
+                            loop -> count--;
+                            c = loop -> c;
+                        }
+                        else if(loop -> count == MIN){
+                            c = loop -> c;
+                        }
+                        else{
+                            if(loop -> next != NULL){
+                                LOOP *temp = loop;
+                                loop = loop -> next;
+                                free(temp);
+                            }
+
+                            c = c -> next -> next;
+                        }
                     }
                     else{
-                        //return wrong syntax for :||
+                        return getStatus(ERR_INV_COMMAND, 0, 0);
                     }
                     break;
                 case '+':
-                    mode += ptr -> tail -> val;
+                    if(ptr -> tail -> val != MIN){
+                        mode += ptr -> tail -> val;
+                    }
+                    else{
+                        return getStatus(ERR_PLAY_NULL, 0, 0);
+                    }
                     break;
                 case '-':
-                    mode -= ptr -> tail -> val;
+                    if(ptr -> tail -> val != MIN){
+                        mode -= ptr -> tail -> val;
+                    }
+                    else{
+                        return getStatus(ERR_PLAY_NULL, 0, 0);
+                    }
                     break;
                 case '.':
                     mode = 0;
                     break;
                 case '%':
+                    temp = (NOTE*)malloc(sizeof(NOTE));
+                    temp -> val = MIN;
+                    temp -> next = NULL;
+
+                    play(pl[cnt], temp);
+                    last = temp;
                     break;
                 case '~':
                     break;
@@ -265,10 +336,17 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
 
                             play(pl[cnt], temp);
                             last = temp;
+
+                            if(add != NULL){
+                                //printf("%d to %d\n", marker[tempval], last);
+                                marker[tempval] = add;
+                                add = NULL;
+                            }
                         }
                         else{
                             return getStatus(ERR_PLAY_LIST_EMPTY, 0, 0);
                         }
+                        c = c -> next;
                     }
                     else if(isdigit(c -> next -> c) || c -> next -> c == '-'){
                         tempval = pl[cnt] -> cnt;
@@ -283,6 +361,7 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                         CODE *tempptr = c -> next -> next;
                         while(isdigit(tempptr -> c)){
                             rel = rel * 10 + ((tempptr -> c - '0') * sign);
+                            c = tempptr;
                             tempptr = tempptr -> next;
                         }
 
@@ -290,7 +369,7 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                             return getStatus(ERR_PLAY_OOB, 0, 0);
                         }
                         //TODO: check for size first (optimization)
-                        printf("%d\n", rel);
+                        //printf("%d\n", rel);
                         NOTE *plptr;
                         if(rel >= 0){
                             plptr = pl[cnt] -> head;
@@ -317,13 +396,16 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
 
                         play(pl[cnt], temp);
                         last = temp;
-                        printf("%d\n", plptr -> val);
+                        //printf("%d\n", plptr -> val);
+                        c = c -> next;
                     }
                     break;
                 case '?':
                     break;
             }
             c = c -> next;
+            //printf("Mode: %d\n", mode);
+            //printf("Now pointing at %c\n", (c != NULL) ? c -> c : '?');
         }
         l = l -> next;
         if(l != NULL){
