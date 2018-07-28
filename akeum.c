@@ -1,3 +1,6 @@
+#include <ctype.h>
+#include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +24,12 @@
 #define ERR_HEAD_CLEF 2
 #define ERR_HEAD_TIME_NONE 3
 #define ERR_HEAD_TIME_FORMAT 4
+#define ERR_INV_COMMAND 10
+#define ERR_PLAY_LIST_EMPTY 20
+#define ERR_PLAY_OOB 20
 #define ERR_UNK -1
+
+#define MIN INT_MIN
 
 typedef struct code{
     char c;
@@ -51,10 +59,11 @@ typedef struct stat{
 
 typedef struct note{
     int val;
-    struct note *next;
+    struct note *next, *prev;
 } NOTE;
 
 typedef struct play{
+    int cnt;
     NOTE *head, *tail;
 } PLAY;
 
@@ -134,7 +143,7 @@ int main(int argc, char *argv[]){
         //printLine(line);
     }
     //printProgram(&p);
-    playProgram(&p, pl);
+    printStatus(playProgram(&p, pl));
 
     fclose(fp);
     return 1;
@@ -147,12 +156,15 @@ void initNote(NOTE *n){
 
 void play(PLAY* pl, NOTE *n){
     if(pl -> head == NULL){
+        n -> prev = NULL;
         pl -> head = pl -> tail = n;
     }
     else{
+        n -> prev = pl -> tail;
         pl -> tail -> next = n;
         pl -> tail = n;
     }
+    pl -> cnt++;
     printf("Playing: %d\n", n -> val);
 }
 
@@ -180,15 +192,16 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
 
     while(l != NULL){
         last = (NOTE*)malloc(sizeof(NOTE));
-        last -> val = -1;
+        last -> val = MIN;
         last -> next;
         mode = 0;
         pl[cnt] = (PLAY*)malloc(sizeof(PLAY));
         ptr = pl[cnt];
         ptr -> head = ptr -> tail = last;
+        ptr -> cnt = 0;
 
         while(c != NULL){
-            if(c -> c > 64 && c -> c < 72){
+            if(isupper(c -> c)){
                 tempval = (c -> c - 60) % 7;
                 tempval = (tempval > 2) ? tempval * 2 - 10 : tempval * 2 - 9;
                 temp = (NOTE*)malloc(sizeof(NOTE));
@@ -206,7 +219,7 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                 last = temp;
                 play(ptr, temp);
             }
-            else if(c -> c > 96 && c -> c < 123){
+            else if(islower(c -> c)){
                 tempval = c -> c - 97;
                 marker[tempval] = last;
                 //printf("Added marker %c at %d with val %d\n", c -> c, last, last -> val);
@@ -238,14 +251,73 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                 case '~':
                     break;
                 case '=':
-                    if(c -> next -> c > 96 && c -> next -> c < 123){
+                    if(islower(c -> next -> c)){
                         tempval = c -> next -> c - 97;
                         //printf("%d\n", marker[tempval] -> val);
-                        if(marker[tempval] != NULL){
+                        if(marker[tempval] -> next != NULL){
                             //printf("Accessing marker %c at %d\n", c -> next -> c, marker[tempval]);
-                            play(pl[cnt], marker[tempval] -> next);
-                            last = marker[tempval] -> next;
+                            int tempplay = marker[tempval] -> next -> val;
+                            tempplay += value;
+                            tempplay += mode;
+                            temp = (NOTE*)malloc(sizeof(NOTE));
+                            temp -> val = tempplay;
+                            temp -> next = NULL;
+
+                            play(pl[cnt], temp);
+                            last = temp;
                         }
+                        else{
+                            return getStatus(ERR_PLAY_LIST_EMPTY, 0, 0);
+                        }
+                    }
+                    else if(isdigit(c -> next -> c) || c -> next -> c == '-'){
+                        tempval = pl[cnt] -> cnt;
+                        int rel = 0, sign = 1, i;
+                        if(c -> next -> c == '-'){
+                            sign *= -1;
+                        }
+                        else{
+                            rel = c -> next -> c - '0';
+                        }
+
+                        CODE *tempptr = c -> next -> next;
+                        while(isdigit(tempptr -> c)){
+                            rel = rel * 10 + ((tempptr -> c - '0') * sign);
+                            tempptr = tempptr -> next;
+                        }
+
+                        if(abs(rel) > tempval){
+                            return getStatus(ERR_PLAY_OOB, 0, 0);
+                        }
+                        //TODO: check for size first (optimization)
+                        printf("%d\n", rel);
+                        NOTE *plptr;
+                        if(rel >= 0){
+                            plptr = pl[cnt] -> head;
+                            while(rel > 0){
+                                plptr = plptr -> next;
+                                rel--;
+                            }
+                        }
+                        else{
+                            plptr = pl[cnt] -> tail;
+                            rel++;
+                            while(rel < 0){
+                                plptr = plptr -> prev;
+                                rel++;
+                            }
+                        }
+
+                        plptr -> val += value;
+                        plptr -> val += mode;
+
+                        temp = (NOTE*)malloc(sizeof(NOTE));
+                        temp -> val = plptr -> val;
+                        temp -> next = NULL;
+
+                        play(pl[cnt], temp);
+                        last = temp;
+                        printf("%d\n", plptr -> val);
                     }
                     break;
                 case '?':
@@ -259,6 +331,8 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
         }
         cnt++;
     }
+
+    return getStatus(SUCCESS, 0, 0);
 }
 
 LINE* getLine(PROGRAM *p, char c){
