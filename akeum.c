@@ -45,17 +45,6 @@ typedef struct program{
     LINE *line, *tail;
 } PROGRAM;
 
-typedef struct operation{
-    int op;
-    int param;
-    void *ptr;
-    struct operation *next;
-} OP;
-
-typedef struct queue{
-    OP *head, *tail;
-} QUEUE;
-
 typedef struct stat{
     int status, line, c;
 } STATUS;
@@ -123,7 +112,6 @@ int main(int argc, char *argv[]){
     CODE *ptr;
     STATUS stat;
     HEADER *head;
-    QUEUE **q;
     PLAY **pl;
 
     openFile(&fp, argv[1]);
@@ -165,6 +153,14 @@ void play(PLAY* pl, NOTE *n){
         pl -> tail -> next = n;
         pl -> tail = n;
     }
+    printf("Playing: %d\n", n -> val);
+}
+
+void initMarker(NOTE **n){
+    int i;
+    for(i = 0; i < 26; i++){
+        n[i] = NULL;
+    }
 }
 
 STATUS playProgram(PROGRAM *p, PLAY **pl){
@@ -172,24 +168,29 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
     CODE *c = l -> head;
     pl = (PLAY**)malloc(p -> count * sizeof(PLAY*));
     PLAY *ptr;
-    NOTE *temp;
+    NOTE *temp, *last;
     int cnt = 0;
     int value = p -> value;
     int length = p -> length;
     int tempval = 0;
-    int mode = 0;
+    int mode;
     NOTE *marker[26];
 
+    initMarker(marker);
+
     while(l != NULL){
+        last = (NOTE*)malloc(sizeof(NOTE));
+        last -> val = -1;
+        last -> next;
+        mode = 0;
         pl[cnt] = (PLAY*)malloc(sizeof(PLAY));
         ptr = pl[cnt];
-        ptr -> head = ptr -> tail = NULL;
+        ptr -> head = ptr -> tail = last;
 
         while(c != NULL){
             if(c -> c > 64 && c -> c < 72){
                 tempval = (c -> c - 60) % 7;
                 tempval = (tempval > 2) ? tempval * 2 - 10 : tempval * 2 - 9;
-                tempval += value;
                 temp = (NOTE*)malloc(sizeof(NOTE));
                 if(c -> next -> c == '#'){
                     tempval++;
@@ -197,11 +198,18 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                 else if(c -> next -> c == 'b'){
                     tempval--;
                 }
+                tempval += value;
                 tempval += mode;
-                printf("%c%c- %d\n", c -> c, (c -> next -> c == '#' || c -> next -> c == 'b') ? c -> next -> c + ' ' : ' ', tempval);
+                //printf("%c%c- %d\n", c -> c, (c -> next -> c == '#' || c -> next -> c == 'b') ? c -> next -> c : ' ', tempval);
                 temp -> val = tempval;
                 temp -> next = NULL;
+                last = temp;
                 play(ptr, temp);
+            }
+            else if(c -> c > 96 && c -> c < 123){
+                tempval = c -> c - 97;
+                marker[tempval] = last;
+                //printf("Added marker %c at %d with val %d\n", c -> c, last, last -> val);
             }
             switch(c -> c){
                 case '|':
@@ -230,6 +238,15 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                 case '~':
                     break;
                 case '=':
+                    if(c -> next -> c > 96 && c -> next -> c < 123){
+                        tempval = c -> next -> c - 97;
+                        //printf("%d\n", marker[tempval] -> val);
+                        if(marker[tempval] != NULL){
+                            //printf("Accessing marker %c at %d\n", c -> next -> c, marker[tempval]);
+                            play(pl[cnt], marker[tempval] -> next);
+                            last = marker[tempval] -> next;
+                        }
+                    }
                     break;
                 case '?':
                     break;
