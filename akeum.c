@@ -60,6 +60,20 @@ typedef struct stat{
     int status, line, c;
 } STATUS;
 
+typedef struct note{
+    int val;
+    struct note *next;
+} NOTE;
+
+typedef struct play{
+    NOTE *head, *tail;
+} PLAY;
+
+typedef struct loop{
+    NOTE *note;
+    struct loop *down;
+} LOOP;
+
 void openFile(FILE**, char*);
 int readLine(FILE**, LINE**);
 void printLine(LINE*);
@@ -76,7 +90,7 @@ STATUS getStatus(int, int, int);
 STATUS getHeader(PROGRAM*, LINE*, HEADER*);
 STATUS getTimeSig(PROGRAM*, LINE*);
 
-STATUS programToQueue(PROGRAM*, QUEUE**);
+STATUS playProgram(PROGRAM*, PLAY**);
 
 void printProgram(PROGRAM *p){
     LINE *l = p -> line;
@@ -110,6 +124,7 @@ int main(int argc, char *argv[]){
     STATUS stat;
     HEADER *head;
     QUEUE **q;
+    PLAY **pl;
 
     openFile(&fp, argv[1]);
     initProg(&p);
@@ -131,108 +146,92 @@ int main(int argc, char *argv[]){
         //printLine(line);
     }
     //printProgram(&p);
-    programToQueue(&p, q);
+    playProgram(&p, pl);
 
     fclose(fp);
     return 1;
 }
 
-void initOP(OP *op){
-    op -> op = OP_NONE;
-    op -> param = -1;
-    op -> ptr = NULL;
-    op -> next = NULL;
+void initNote(NOTE *n){
+    n -> val = -1;
+    n -> next = NULL;
 }
 
-void addOP(QUEUE* q, OP *op){
-    if(q -> head == NULL){
-        q -> head = q -> tail = op;
+void play(PLAY* pl, NOTE *n){
+    if(pl -> head == NULL){
+        pl -> head = pl -> tail = n;
     }
     else{
-        q -> tail -> next = op;
-        q -> tail = op;
+        pl -> tail -> next = n;
+        pl -> tail = n;
     }
 }
 
-STATUS programToQueue(PROGRAM *p, QUEUE **q){
+STATUS playProgram(PROGRAM *p, PLAY **pl){
     LINE *l = p -> line;
     CODE *c = l -> head;
-    q = (QUEUE**)malloc(p -> count * sizeof(QUEUE*));
-    QUEUE *ptr;
-    OP *temp;
+    pl = (PLAY**)malloc(p -> count * sizeof(PLAY*));
+    PLAY *ptr;
+    NOTE *temp;
     int cnt = 0;
+    int value = p -> value;
+    int length = p -> length;
+    int tempval = 0;
+    int mode = 0;
+    NOTE *marker[26];
 
     while(l != NULL){
-        q[cnt] = (QUEUE*)malloc(sizeof(QUEUE));
-        ptr = q[cnt];
+        pl[cnt] = (PLAY*)malloc(sizeof(PLAY));
+        ptr = pl[cnt];
         ptr -> head = ptr -> tail = NULL;
 
         while(c != NULL){
+            if(c -> c > 64 && c -> c < 72){
+                tempval = (c -> c - 60) % 7;
+                tempval = (tempval > 2) ? tempval * 2 - 10 : tempval * 2 - 9;
+                tempval += value;
+                temp = (NOTE*)malloc(sizeof(NOTE));
+                if(c -> next -> c == '#'){
+                    tempval++;
+                }
+                else if(c -> next -> c == 'b'){
+                    tempval--;
+                }
+                tempval += mode;
+                printf("%c%c- %d\n", c -> c, (c -> next -> c == '#' || c -> next -> c == 'b') ? c -> next -> c + ' ' : ' ', tempval);
+                temp -> val = tempval;
+                temp -> next = NULL;
+                play(ptr, temp);
+            }
             switch(c -> c){
                 case '|':
-                    temp = (OP*)malloc(sizeof(OP));
-                    initOP(temp);
-
                     if(c -> next -> c == '|' && c -> next -> next -> c == ':'){
-                        temp -> op = OP_LOOP_S;
+                        //loop start
                     }
-                    else{
-                        temp -> op = OP_NONE;
-                    }
-                    addOP(ptr, temp);
                     break;
                 case ':':
                     if(c -> next -> c == '|' && c -> next -> next -> c == ':'){
-                        temp = (OP*)malloc(sizeof(OP));
-                        initOP(temp);
-                        temp -> op = OP_LOOP_S;
-                        addOP(ptr, temp);
                     }
                     else{
                         //return wrong syntax for :||
                     }
                     break;
                 case '+':
-                    temp = (OP*)malloc(sizeof(OP));
-                    initOP(temp);
-                    temp -> op = OP_T_UP;
-                    addOP(ptr, temp);
+                    mode += ptr -> tail -> val;
                     break;
                 case '-':
-                    temp = (OP*)malloc(sizeof(OP));
-                    initOP(temp);
-                    temp -> op = OP_T_DOWN;
-                    addOP(ptr, temp);
+                    mode -= ptr -> tail -> val;
                     break;
                 case '.':
-                    temp = (OP*)malloc(sizeof(OP));
-                    initOP(temp);
-                    temp -> op = OP_T_SET;
-                    addOP(ptr, temp);
+                    mode = 0;
                     break;
                 case '%':
-                    temp = (OP*)malloc(sizeof(OP));
-                    initOP(temp);
-                    temp -> op = OP_REST;
-                    addOP(ptr, temp);
                     break;
                 case '~':
-                    temp = (OP*)malloc(sizeof(OP));
-                    initOP(temp);
-                    temp -> op = OP_FORK;
-                    addOP(ptr, temp);
                     break;
                 case '=':
-                    temp = (OP*)malloc(sizeof(OP));
-                    initOP(temp);
-                    temp -> op = OP_PLAYM;
-                    addOP(ptr, temp);
                     break;
                 case '?':
-                    temp = (OP*)malloc(sizeof(OP));
-                    initOP(temp);
-                    temp -> op = OP_RAND;
-                    addOP(ptr, temp);
                     break;
             }
             c = c -> next;
@@ -391,7 +390,7 @@ STATUS getTimeSig(PROGRAM *p, LINE *l){
     ptr = l -> head;
 
     if(ptr -> next -> c == '-'){
-        if(ptr -> c > 48 && ptr -> c < 58){
+        if(ptr -> c > 47 && ptr -> c < 58){
             p -> value = ptr -> c - 48;
 
             if(ptr -> next -> next -> c > 48 && ptr -> next -> next -> c < 58){
