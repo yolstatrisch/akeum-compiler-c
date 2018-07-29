@@ -12,7 +12,7 @@ As of the latest commit, all of the Choon's instruction set has been implemented
 
 ## Instruction set
 
-WIP. For now, refer to this [web archive](https://web.archive.org/web/20160316172205/http://www.stephensykes.com/choon/choon.html).
+WIP. For now, refer to this [web archive](https://web.archive.org/web/20160316172205/http://www.stephensykes.com/choon/choon.html). Add `|G0-4` at the start of the program or `|G` at the start of each line if you want to test out Akeum with the same configuration as Choon.
 
 ## Additional features implemented
 
