@@ -8,5 +8,20 @@ In the words of the original creator himself, he describes the language as:
 > played a note then that's it, it's gone, you can't change it. And it's the same in Choon. Every value is a musical note,
 > and every time a value is encountered in a Choon program it is played immediately on the output.
 
-##Instruction Set
-WIP
+As of the latest commit, all of the Choon's instruction set has been implemented.
+
+## Instruction set
+
+WIP. For now, refer to this [web archive](https://web.archive.org/web/20160316172205/http://www.stephensykes.com/choon/choon.html).
+
+## Additional features implemented
+
+* Time Signature
+* Clefs
+
+
+## Planned to be implemented
+
+* Thread Support (extension to the clefs implementation)
+* Command Line Arguments (using key signatures)
+* Many more to come
