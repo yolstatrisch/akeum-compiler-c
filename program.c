@@ -1,5 +1,4 @@
 #include <ctype.h>
-#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,57 +8,6 @@
 #include "program.h"
 #include "struct.h"
 #include "status.h"
-
-void initMarker(NOTE **n){
-    int i;
-    for(i = 0; i < 26; i++){
-        n[i] = NULL;
-    }
-}
-
-void printLine(LINE *line){
-    CODE *ptr = line -> head;
-
-    while(ptr -> next != NULL){
-        printf("%c", ptr -> c);
-        ptr = ptr -> next;
-    }
-    printf("\n");
-}
-
-void printProgram(PROGRAM *p){
-    LINE *l = p -> line;
-    CODE *c = l -> head;
-    printf("Value: %d\nLength: %d\n", p -> value, p -> length);
-
-    while(l != NULL){
-        while(c != NULL){
-            printf("%c", c -> c);
-            c = c -> next;
-        }
-        l = l -> next;
-        if(l != NULL){
-            c = l -> head;
-        }
-    }
-}
-
-void addLine(PROGRAM *p, LINE *l){
-    if(p -> line == NULL){
-        p -> line = p -> tail = l;
-    }
-    else{
-        p -> tail -> next = l;
-        p -> tail = l;
-    }
-    p -> count++;
-}
-
-void addToLine(LINE *t, LINE *l){
-    t -> tail -> next = l -> head;
-    t -> tail = l -> tail;
-    free(l);
-}
 
 LINE* getLine(PROGRAM *p, char c){
     LINE *ptr = p -> line;
@@ -90,7 +38,7 @@ STATUS getHeader(PROGRAM *p, LINE *l, HEADER *h){
     ptr = ptr -> next;
     c++;
 
-    if(ptr -> c < 65 || ptr -> c > 90){
+    if(!isupper(ptr -> c)){
         return getStatus(ERR_HEAD_CLEF, l -> line, c);
     }
     else{
@@ -132,11 +80,12 @@ STATUS getTimeSig(PROGRAM *p, LINE *l){
 
     ptr = l -> head;
 
+    // TODO: Allow time signatures > 9
     if(ptr -> next -> c == '-'){
-        if(ptr -> c > 47 && ptr -> c < 58){
+        if(isdigit(ptr -> c)){
             p -> value = ptr -> c - 48;
 
-            if(ptr -> next -> next -> c > 48 && ptr -> next -> next -> c < 58){
+            if(isdigit(ptr -> next -> next -> c)){
                 p -> length = ptr -> next -> next -> c - 48;
             }
             else{
@@ -159,41 +108,44 @@ STATUS getTimeSig(PROGRAM *p, LINE *l){
 STATUS playProgram(PROGRAM *p, PLAY **pl){
     LINE *l = p -> line;
     CODE *c = l -> head;
-    pl = (PLAY**)malloc(p -> count * sizeof(PLAY*));
+
+    NOTE *temp, *last, *add, *marker[26];
     PLAY *ptr;
-    NOTE *temp, *last;
-    int cnt = 0;
+    LOOP *loop;
+
     int value = p -> value;
     int length = p -> length;
-    int tempval = 0;
-    int mode;
-    NOTE *marker[26];
-    LOOP *loop;
-    NOTE *add = NULL;
+    int tempval = 0, cnt = 0;
+    int mode, i;
+
     CODE *inloop = NULL, *outloop = NULL;
     int r[] = {-9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2};
-    int i;
+
+    pl = (PLAY**)malloc(p -> count * sizeof(PLAY*));
+    add = NULL;
 
     initMarker(marker);
     srand(time(NULL));
 
     while(l != NULL){
+        initNoteToMin(last);
+
         loop = NULL;
-        last = (NOTE*)malloc(sizeof(NOTE));
-        last -> val = MIN;
-        last -> next;
         mode = 0;
+
         pl[cnt] = (PLAY*)malloc(sizeof(PLAY));
+        pl[cnt] -> head = pl[cnt] -> tail = last;
+        pl[cnt] -> cnt = 0;
         ptr = pl[cnt];
-        ptr -> head = ptr -> tail = last;
-        ptr -> cnt = 0;
 
         while(c != NULL){
             int s = 12;
             if(isupper(c -> c)){
                 tempval = (c -> c - 60) % 7;
                 tempval = (tempval > 2) ? tempval * 2 - 10 : tempval * 2 - 9;
+
                 temp = (NOTE*)malloc(sizeof(NOTE));
+
                 if(c -> next -> c == '#'){
                     tempval++;
                     c = c -> next;
@@ -202,9 +154,10 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                     tempval--;
                     c = c -> next;
                 }
+
                 tempval += value;
                 tempval += mode;
-                //printf("%c%c- %d\n", c -> c, (c -> next -> c == '#' || c -> next -> c == 'b') ? c -> next -> c : ' ', tempval);
+
                 temp -> val = tempval;
                 temp -> next = NULL;
                 last = temp;
@@ -212,14 +165,12 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
             }
             else if(islower(c -> c)){
                 tempval = c -> c - 97;
-                //printf("%c - %c\n", c -> next -> next -> c, c -> c);
+
                 if(c -> next -> c != '=' || c -> next -> next -> c != c -> c){
                     marker[tempval] = last;
-                    //printf("Added marker %c at %d with val %d\n", c -> c, last, last -> val);
                 }
                 else{
                     add = last;
-                    //printf("Adding marker %c at %d with val %d\n", c -> c, last, last -> val);
                 }
             }
             switch(c -> c){
@@ -240,14 +191,11 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                             }
                         }
                         else{
-                            //printf("Skipping...\n");
                             int e = 1;
                             while(e){
-                                //printf("%c%c%c\n", c -> c, c -> next -> c, c -> next -> next -> c);
                                 if(c -> c == ':' && c -> next -> c == '|' && c -> next -> next -> c == '|'){
                                     e = 0;
                                 }
-                                //printf("pass\n");
                                 c = c -> next;
                             }
                         }
@@ -306,7 +254,6 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                     break;
                 case '~':
                     if(last -> val == 0){
-                        //printf("Skip by fork\n");
                         int e = 1;
                             while(e || c -> next == NULL){
                                 if(c -> c == ':' && c -> next -> c == '|' && c -> next -> next -> c == '|'){
@@ -319,8 +266,7 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                 case '=':
                     if(islower(c -> next -> c)){
                         tempval = c -> next -> c - 97;
-                        //printf("%d\n", marker[tempval] -> val);
-                        //printf("Accessing marker %c at %d\n", c -> next -> c, marker[tempval]);
+
                         if(marker[tempval] -> next != NULL){
                             int tempplay = marker[tempval] -> next -> val;
                             tempplay += value;
@@ -333,7 +279,6 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                             last = temp;
 
                             if(add != NULL){
-                                //printf("%d to %d\n", marker[tempval], last);
                                 marker[tempval] = add;
                                 add = NULL;
                             }
@@ -363,8 +308,8 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                         if(abs(rel) > tempval){
                             return getStatus(ERR_PLAY_OOB, 0, 0);
                         }
-                        //TODO: check for size first (optimization)
-                        //printf("%d\n", rel);
+
+                        // TODO: check for size first (optimization)
                         NOTE *plptr;
                         if(rel >= 0){
                             plptr = pl[cnt] -> head;
@@ -391,18 +336,18 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
 
                         play(pl[cnt], temp);
                         last = temp;
-                        //printf("%d\n", plptr -> val);
                         c = c -> next;
                     }
                     break;
+                // TODO: Implement a faster rand gen
                 case '?':
                     while(s > 0){
                         temp = (NOTE*)malloc(sizeof(NOTE));
+
                         do{
                             i = rand() % 12;
                         }while(r[i] == MIN);
 
-                        //printf("%d ",r[i]);
                         temp -> val = r[i] + value + mode;
                         temp -> next = NULL;
                         last = temp;
@@ -414,8 +359,6 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                     break;
             }
             c = c -> next;
-            //printf("Mode: %d\n", mode);
-            //printf("Now pointing at %c\n", (c != NULL) ? c -> c : '?');
         }
         l = l -> next;
         if(l != NULL){

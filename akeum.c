@@ -7,8 +7,8 @@
 #include "struct.h"
 
 int main(int argc, char *argv[]){
-    FILE *fp;
     PROGRAM p;
+    FILE *fp;
     LINE *line, *temp;
     CODE *ptr;
     STATUS stat;
@@ -31,10 +31,7 @@ int main(int argc, char *argv[]){
         else{
             addLine(&p, line);
         }
-        //free(temp);
-        //printLine(line);
     }
-    //printProgram(&p);
     printStatus(playProgram(&p, pl));
 
     fclose(fp);

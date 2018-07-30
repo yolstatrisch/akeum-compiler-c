@@ -19,7 +19,6 @@ WIP. For now, refer to this [web archive](https://web.archive.org/web/2016031617
 * Time Signature
 * Clefs
 
-
 ## Planned to be implemented
 
 * Thread Support (extension to the clefs implementation)
