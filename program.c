@@ -130,7 +130,6 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
     int mode, i;
 
     CODE *inloop = NULL, *outloop = NULL;
-    int r[] = {-9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2};
 
     pl = (PLAY**)malloc(p -> count * sizeof(PLAY*));
     add = NULL;
@@ -150,7 +149,6 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
         ptr = pl[cnt];
 
         while(c != NULL){
-            int s = 12;
             if(isupper(c -> c)){
                 tempval = (c -> c - 60) % 7;
                 tempval = (tempval > 2) ? tempval * 2 - 10 : tempval * 2 - 9;
@@ -350,23 +348,16 @@ STATUS playProgram(PROGRAM *p, PLAY **pl){
                         c = c -> next;
                     }
                     break;
-                // TODO: Implement a faster rand gen
                 case '?':
-                    while(s > 0){
-                        temp = (NOTE*)malloc(sizeof(NOTE));
+                    i = rand() % 12;
 
-                        do{
-                            i = rand() % 12;
-                        }while(r[i] == MIN);
+                    temp = (NOTE*)malloc(sizeof(NOTE));
+                    temp -> val = i + value + mode + last -> val;
+                    temp -> next = NULL;
 
-                        temp -> val = r[i] + value + mode;
-                        temp -> next = NULL;
-                        last = temp;
-                        play(ptr, temp);
+                    last = temp;
+                    play(ptr, temp);
 
-                        r[i] = MIN;
-                        s--;
-                    }
                     break;
             }
             c = c -> next;
