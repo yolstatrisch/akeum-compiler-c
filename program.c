@@ -76,31 +76,42 @@ void play(PLAY *pl, NOTE *n){
 
 STATUS getTimeSig(PROGRAM *p, LINE *l){
     CODE *ptr;
-    int c = 0;
+    int c = 0, val = 0, len = 0;
 
     ptr = l -> head;
 
-    // TODO: Allow time signatures > 9
-    if(ptr -> next -> c == '-'){
-        if(isdigit(ptr -> c)){
-            p -> value = ptr -> c - 48;
-
-            if(isdigit(ptr -> next -> next -> c)){
-                p -> length = ptr -> next -> next -> c - 48;
-            }
-            else{
-                return getStatus(ERR_HEAD_TIME_FORMAT, l -> line, c);
-            }
-        }
-        else{
-            return getStatus(ERR_HEAD_TIME_FORMAT, l -> line, c);
-        }
-    }
-    else{
+    if(!isdigit(ptr -> c)){
         return getStatus(ERR_HEAD_TIME_NONE, l -> line, c);
     }
 
-    l -> head = ptr -> next -> next -> next;
+    while(isdigit(ptr -> c)){
+        val *= 10;
+        val += ptr -> c - 48;
+        ptr = ptr -> next;
+        c++;
+    }
+
+    if(ptr -> c != '-'){
+        return getStatus(ERR_HEAD_TIME_FORMAT, l -> line, c);
+    }
+
+    ptr = ptr -> next;
+    c++;
+
+    if(!isdigit(ptr -> c)){
+        return getStatus(ERR_HEAD_TIME_NONE, l -> line, c);
+    }
+
+    while(isdigit(ptr -> c)){
+        len *= 10;
+        len += ptr -> c - 48;
+        ptr = ptr -> next;
+        c++;
+    }
+
+    p -> value = val;
+    p -> length = val;
+    l -> head = ptr;
 
     return getStatus(SUCCESS, l -> line, 0);
 }
