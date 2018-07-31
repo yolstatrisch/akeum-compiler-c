@@ -1,5 +1,5 @@
 # akeum-compiler-c
-akeum (악음) is my attempt at reviving Choon, a Turing complete esoteric programming language made by Stephen Sykes back in 2002.  
+akeum (악음) is my attempt at reviving Choon, a Turing complete esoteric programming language made by Stephen Sykes back in 2002. More information about Choon is found on this [web archive](https://web.archive.org/web/20160316172205/http://www.stephensykes.com/choon/choon.html).
 
 In the words of the original creator himself, he describes the language as:
 
@@ -12,7 +12,8 @@ As of the latest commit, all of the Choon's instruction set has been implemented
 
 ## Instruction set
 
-WIP. For now, refer to this [web archive](https://web.archive.org/web/20160316172205/http://www.stephensykes.com/choon/choon.html). Add `|G0-4` at the start of the program or `|G` at the start of each line if you want to test out Akeum with the same configuration as Choon.
+WIP. For now, refer to this [web archive](https://web.archive.org/web/20160316172205/http://www.stephensykes.com/choon/choon.html).
+Add `|G0-4` at the start of the program or `|G` at the start of each line if you want to test out Akeum with the same configuration as Choon.
 
 ## Additional features implemented
 
