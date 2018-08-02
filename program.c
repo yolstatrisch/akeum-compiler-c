@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -116,26 +117,101 @@ STATUS getTimeSig(PROGRAM *p, LINE *l){
     return getStatus(SUCCESS, l -> line, 0);
 }
 
-STATUS playProgram(PROGRAM *p, PLAY **pl){
-    LINE *l = p -> line;
-    CODE *c = l -> head;
+void initRunStat(uint_fast8_t *i, int c){
+    int flag = 0x1;
 
-    NOTE *temp, *last, *add, *marker[26];
-    PLAY *ptr;
-    LOOP *loop;
+    while(c-- > 0){
+        *i |= flag;
+        flag <<= 1;
+    }
+}
 
+void initPtrArr(CODE **c, LINE *l, int n){
+    LINE *ptr = l;
+    int cnt;
+
+    for(cnt = 0; cnt < n; cnt++){
+        *(c + cnt) = ptr -> head;
+        ptr = ptr -> next;
+    }
+}
+
+void initLastPl(NOTE **l, int n){
+    int i;
+    for(i = 0; i < n; i++){
+        l[i] = (NOTE*)malloc(sizeof(NOTE));
+        l[i] -> val = MIN;
+        l[i] -> next = l[i] -> prev = NULL;
+    }
+}
+
+void initLoop(LOOP **l, int n){
+    int i;
+    for(i = 0; i < n; i++){
+        l[i] = NULL;
+    }
+}
+
+voit initMode(int_fast8_t *mode, int n){
+    int i;
+    for(i = 0; i < n; i++){
+        mode[i] = 0;
+    }
+}
+
+STATUS playProgram(PROGRAM *p, PLAYLIST *pl){
+    int count = p -> count;
     int value = p -> value;
     int length = p -> length;
-    int tempval = 0, cnt = 0;
-    int mode, i;
 
-    CODE *inloop = NULL, *outloop = NULL;
+    CODE **ptrArr = (CODE**)malloc(count * sizeof(CODE*));
+    CODE *ptr;
+    LINE *l = p -> line;
 
-    pl = (PLAY**)malloc(p -> count * sizeof(PLAY*));
-    add = NULL;
+    NOTE *lastPlayed[count], *marker[26];
+    LOOP *loop[count];
 
-    initMarker(marker);
+    uint_fast8_t runStatus = 0x0;
+    uint8_t rptr = 0x0;
+
+    int_fast8_t mode[count];
+
+    initRunStat(&runStatus, count);
+    initPtrArr(ptrArr, l, count);
+    initLastPl(lastPlayed, count);
+    initLoop(loop, count);
+    initMode(mode, count);
     srand(time(NULL));
+
+    pl = (PLAYLIST*)malloc(sizeof(PLAYLIST));
+    pl -> count = 0;
+    pl -> head = pl -> tail = NULL;
+
+    while(runStatus != 0x0){
+        if(*(ptrArr + rptr) != NULL){
+            ptr = *(ptrArr + rptr);
+
+            if(isupper(ptr -> c)){
+                // Play Note
+            }
+            else if(islower(ptr -> c)){
+                // Set Marker
+            }
+            else{
+                switch(ptr -> c){
+                    
+                }
+            }
+        }
+        else{
+            runStatus &= ~(0x1 << rptr);
+        }
+
+        rptr = (rptr + 1) % count;
+    }
+
+    return getStatus(SUCCESS, 0, 0);
+    //cutoff line
 
     while(l != NULL){
         initNoteToMin(last);

@@ -31,9 +31,15 @@ typedef struct note{
 } NOTE;
 
 typedef struct play{
-    int cnt;
-    NOTE *head, *tail;
+    int playTime;
+    NOTE *played;
+    struct play *next;
 } PLAY;
+
+typedef struct list{
+    int count;
+    PLAY *head, *tail;
+} PLAYLIST;
 
 typedef struct loop{
     int count;
