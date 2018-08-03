@@ -32,8 +32,9 @@ typedef struct note{
 
 typedef struct play{
     int playTime;
+    int clef;
     NOTE *played;
-    struct play *next;
+    struct play *next, *prev;
 } PLAY;
 
 typedef struct list{
