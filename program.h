@@ -7,5 +7,5 @@ LINE* getLine(PROGRAM*, char);
 STATUS getHeader(PROGRAM*, LINE*, HEADER*);
 STATUS getTimeSig(PROGRAM*, LINE*);
 
-void play(PLAY*, NOTE*);
-STATUS playProgram(PROGRAM*, PLAY**);
+void play(PLAYLIST*, NOTE*, int, int);
+STATUS playProgram(PROGRAM*, PLAYLIST*);

@@ -61,18 +61,21 @@ STATUS getHeader(PROGRAM *p, LINE *l, HEADER *h){
     return getStatus(SUCCESS, l -> line, 0);
 }
 
-void play(PLAY *pl, NOTE *n){
-    if(pl -> head == NULL){
-        n -> prev = NULL;
-        pl -> head = pl -> tail = n;
+void play(PLAYLIST *pl, NOTE *n, int r, int t){
+    PLAY *play = (PLAY*)malloc(sizeof(PLAY));
+    play -> playTime = t;
+    play -> played = n;
+    play -> next = NULL;
+
+    if(pl -> count == 0){
+        pl -> head = pl -> tail = play;
     }
     else{
-        n -> prev = pl -> tail;
-        pl -> tail -> next = n;
-        pl -> tail = n;
+        pl -> tail -> next = play;
+        pl -> tail = play;
     }
-    pl -> cnt++;
-    printf("Playing: %d\n", n -> val);
+
+    printf("Played: %d at %d", n -> val, t);
 }
 
 STATUS getTimeSig(PROGRAM *p, LINE *l){
@@ -152,7 +155,7 @@ void initLoop(LOOP **l, int n){
     }
 }
 
-voit initMode(int_fast8_t *mode, int n){
+void initMode(int_fast8_t *mode, int n){
     int i;
     for(i = 0; i < n; i++){
         mode[i] = 0;
@@ -168,11 +171,11 @@ STATUS playProgram(PROGRAM *p, PLAYLIST *pl){
     CODE *ptr;
     LINE *l = p -> line;
 
-    NOTE *lastPlayed[count], *marker[26];
+    NOTE *lastPlayed[count], *marker[26], *temp;
     LOOP *loop[count];
 
     uint_fast8_t runStatus = 0x0;
-    uint8_t rptr = 0x0;
+    uint8_t rptr = 0x0, rcnt = 0x0, rtotal = 0x0, rnd;
 
     int_fast8_t mode[count];
 
@@ -188,31 +191,162 @@ STATUS playProgram(PROGRAM *p, PLAYLIST *pl){
     pl -> head = pl -> tail = NULL;
 
     while(runStatus != 0x0){
-        if(*(ptrArr + rptr) != NULL){
+        printf("Clef %d: ", rptr);
+        if(*(ptrArr + rptr) == NULL || !(runStatus & 0x1 << rptr)){
+            runStatus &= ~(0x1 << rptr);
+        }
+        else{
             ptr = *(ptrArr + rptr);
 
             if(isupper(ptr -> c)){
-                // Play Note
+                int note = (ptr -> c - 60) % 7;
+                note = (note > 2) ? note * 2 - 10 : note * 2 - 9;
+
+                temp = (NOTE*)malloc(sizeof(NOTE));
+
+                if(ptr -> next -> c == '#'){
+                    note++;
+                    ptr = ptr -> next;
+                }
+                else if(ptr -> next -> c == 'b'){
+                    note--;
+                    ptr = ptr -> next;
+                }
+
+                note += value;
+                note += mode[rptr];
+
+                temp -> val = note;
+                temp -> next = NULL;
+                lastPlayed[rptr] = temp;
+                play(pl, temp, rptr, rcnt);
             }
             else if(islower(ptr -> c)){
-                // Set Marker
+                printf("marker %c", ptr -> c);
             }
             else{
+                printf("switch %c", ptr -> c);
                 switch(ptr -> c){
-                    
+                    case '|':
+                        if(ptr -> next -> c == '|' && ptr -> next -> next -> c == ':'){
+                            //printf("Loop start\n");
+                            if(lastPlayed[rptr] -> val > 0 || lastPlayed[rptr] -> val == MIN){
+                                LOOP *looptemp = (LOOP*)malloc(sizeof(LOOP));
+                                looptemp -> count = lastPlayed[rptr] -> val - 1;
+                                looptemp -> c = ptr -> next -> next;
+                                looptemp -> next = NULL;
+
+                                if(loop[rptr] == NULL){
+                                    loop[rptr] = looptemp;
+                                }
+                                else{
+                                    looptemp -> next = loop[rptr];
+                                    loop[rptr] = looptemp;
+                                }
+                            }
+                            else{
+                                int e = 1;
+                                while(e){
+                                    if(ptr -> c == ':' && ptr -> next -> c == '|' && ptr -> next -> next -> c == '|'){
+                                        e = 0;
+                                    }
+                                    ptr = ptr -> next;
+                                }
+                                ptr = ptr -> next;
+                            }
+
+                            ptr = ptr -> next -> next;
+                        }
+                        break;
+                    case ':':
+                        if(ptr -> next -> c == '|' && ptr -> next -> next -> c == '|'){
+                            if(loop[rptr] -> count > 0){
+                                loop[rptr] -> count--;
+                                ptr = loop[rptr] -> c;
+                            }
+                            else if(loop[rptr] -> count == MIN){
+                                ptr = loop[rptr] -> c;
+                            }
+                            else{
+                                if(loop[rptr] -> next != NULL){
+                                    LOOP *temp = loop[rptr];
+                                    loop[rptr] = loop[rptr] -> next;
+                                    free(temp);
+                                }
+
+                                ptr = ptr -> next -> next;
+                            }
+                        }
+                        else{
+                            return getStatus(ERR_INV_COMMAND, rptr, rcnt);
+                        }
+                        break;
+                    case '+':
+                        if(lastPlayed[rptr] -> val != MIN){
+                            mode[rptr] += lastPlayed[rptr] -> val;
+                        }
+                        else{
+                            return getStatus(ERR_PLAY_NULL, rptr, rcnt);
+                        }
+                        break;
+                    case '-':
+                        if(lastPlayed[rptr] -> val != MIN){
+                            mode[rptr] -= lastPlayed[rptr] -> val;
+                        }
+                        else{
+                            return getStatus(ERR_PLAY_NULL, rptr, rcnt);
+                        }
+                        break;
+                    case '.':
+                        mode[rptr] = 0;
+                        break;
+                    case '%':
+                        temp = (NOTE*)malloc(sizeof(NOTE));
+                        temp -> val = MIN;
+                        temp -> next = NULL;
+
+                        play(pl, temp, rptr, rcnt);
+                        lastPlayed[rptr] = temp;
+                        break;
+                    case '~':
+                        if(lastPlayed[rptr] -> val == 0){
+                            int e = 1;
+                            while(e || ptr -> next == NULL){
+                                if(ptr -> c == ':' && ptr -> next -> c == '|' && ptr -> next -> next -> c == '|'){
+                                    e = 0;
+                                }
+                                ptr = ptr -> next;
+                            }
+                            ptr = ptr -> next;
+                        }
+                        break;
+                    case '=':
+                        break;
+                    case '?':
+                        rnd = rand() % 12;
+
+                        temp = (NOTE*)malloc(sizeof(NOTE));
+                        temp -> val = rnd + value + mode[rptr] + lastPlayed[rptr] -> val;
+                        temp -> next = NULL;
+
+                        lastPlayed[rptr] = temp;
+                        play(pl, temp, rptr, rcnt);
+                        break;
                 }
             }
         }
-        else{
-            runStatus &= ~(0x1 << rptr);
-        }
+        printf("\n");
 
-        rptr = (rptr + 1) % count;
+        *(ptrArr + rptr) = ptr -> next;
+
+        rtotal++;
+        rptr = rtotal % count;
+        rcnt = floor(rtotal / count);
     }
 
     return getStatus(SUCCESS, 0, 0);
     //cutoff line
-
+    /*
     while(l != NULL){
         initNoteToMin(last);
 
@@ -446,4 +580,5 @@ STATUS playProgram(PROGRAM *p, PLAYLIST *pl){
     }
 
     return getStatus(SUCCESS, 0, 0);
+    */
 }

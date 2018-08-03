@@ -13,7 +13,7 @@ int main(int argc, char *argv[]){
     CODE *ptr;
     STATUS stat;
     HEADER *head;
-    PLAY **pl;
+    PLAYLIST *pl;
 
     openFile(&fp, argv[1]);
     initProg(&p);

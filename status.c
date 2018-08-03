@@ -14,7 +14,7 @@ STATUS getStatus(int s, int l, int c){
 
 void printStatus(STATUS stat){
     if(stat.status != SUCCESS){
-        printf("ERROR: %d at line %d : %d\n", stat.status, stat.line, stat.c);
+        printf("ERROR: %d at clef %d : %d\n", stat.status, stat.line, stat.c);
         exit(stat.status);
     }
 }
