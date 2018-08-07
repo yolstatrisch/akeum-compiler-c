@@ -62,11 +62,18 @@ STATUS getHeader(PROGRAM *p, LINE *l, HEADER *h){
 }
 
 void play(PLAYLIST *pl, NOTE *n, int r, int t){
+    static int playTime = -1, playCount = -1;
+
     PLAY *play = (PLAY*)malloc(sizeof(PLAY));
-    play -> playTime = t;
     play -> played = n;
     play -> clef = r;
     play -> next = NULL;
+
+    if(playTime != t){
+        playCount++;
+        playTime = t;
+    }
+    play -> playTime = playCount;
 
     if(pl -> count == 0){
         play -> prev = NULL;
@@ -79,8 +86,14 @@ void play(PLAYLIST *pl, NOTE *n, int r, int t){
     }
 
     pl -> count++;
+}
 
-    printf("Played: %d from Clef: %d at %d\n", n -> val, r, t);
+void playAll(PLAYLIST *pl){
+    PLAY *p = pl -> head;
+    while(p != NULL){
+        printf("%d: %d\n", p -> playTime, p -> played -> val);
+        p = p -> next;
+    }
 }
 
 STATUS getTimeSig(PROGRAM *p, LINE *l){
@@ -180,7 +193,8 @@ STATUS playProgram(PROGRAM *p, PLAYLIST *pl){
     LOOP *loop[count];
 
     uint_fast8_t runStatus = 0x0;
-    uint8_t lock = 0x0, rptr = 0x0, rcnt = 0x0, rtotal = 0x0, rnd;
+    uint8_t lock = 0x0, rptr = 0x0, rnd;
+    uint_fast64_t rtotal = 0x0, rcnt = 0x0;
 
     int_fast8_t mode[count];
 
@@ -408,5 +422,6 @@ STATUS playProgram(PROGRAM *p, PLAYLIST *pl){
         rcnt = floor(rtotal / count);
     }
 
+    playAll(pl);
     return getStatus(SUCCESS, 0, 0);
 }
