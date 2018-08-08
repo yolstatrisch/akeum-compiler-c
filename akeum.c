@@ -10,16 +10,12 @@ int main(int argc, char *argv[]){
     PROGRAM p;
     FILE *fp;
     LINE *line, *temp;
-    CODE *ptr;
-    STATUS stat;
-    HEADER *head;
-    PLAYLIST *pl;
 
     openFile(&fp, argv[1]);
     initProg(&p);
 
     while(readLine(&fp, &line)){
-        printStatus(getHeader(&p, line, head));
+        printStatus(getHeader(&p, line));
 
         if(line -> line == 0){
             printStatus(getTimeSig(&p, line));
@@ -32,7 +28,7 @@ int main(int argc, char *argv[]){
             addLine(&p, line);
         }
     }
-    printStatus(playProgram(&p, pl));
+    printStatus(playProgram(&p));
 
     fclose(fp);
     return 1;

@@ -23,10 +23,11 @@ LINE* getLine(PROGRAM *p, char c){
     return NULL;
 }
 
-STATUS getHeader(PROGRAM *p, LINE *l, HEADER *h){
+STATUS getHeader(PROGRAM *p, LINE *l){
     CODE *ptr;
     int c = 0, s = 0;
-    h = (HEADER*)malloc(sizeof(HEADER));
+
+    HEADER *h = (HEADER*)malloc(sizeof(HEADER));
     h -> clef = 'G';
     h -> keysig = 0;
 
@@ -59,41 +60,6 @@ STATUS getHeader(PROGRAM *p, LINE *l, HEADER *h){
     l -> head = ptr;
 
     return getStatus(SUCCESS, l -> line, 0);
-}
-
-void play(PLAYLIST *pl, NOTE *n, int r, int t){
-    static int playTime = -1, playCount = -1;
-
-    PLAY *play = (PLAY*)malloc(sizeof(PLAY));
-    play -> played = n;
-    play -> clef = r;
-    play -> next = NULL;
-
-    if(playTime != t){
-        playCount++;
-        playTime = t;
-    }
-    play -> playTime = playCount;
-
-    if(pl -> count == 0){
-        play -> prev = NULL;
-        pl -> head = pl -> tail = play;
-    }
-    else{
-        play -> prev = pl -> tail;
-        pl -> tail -> next = play;
-        pl -> tail = play;
-    }
-
-    pl -> count++;
-}
-
-void playAll(PLAYLIST *pl){
-    PLAY *p = pl -> head;
-    while(p != NULL){
-        printf("%d: %d\n", p -> playTime, p -> played -> val);
-        p = p -> next;
-    }
 }
 
 STATUS getTimeSig(PROGRAM *p, LINE *l){
@@ -138,6 +104,41 @@ STATUS getTimeSig(PROGRAM *p, LINE *l){
     return getStatus(SUCCESS, l -> line, 0);
 }
 
+void play(PLAYLIST *pl, NOTE *n, int r, int t){
+    static int playTime = -1, playCount = -1;
+
+    PLAY *play = (PLAY*)malloc(sizeof(PLAY));
+    play -> played = n;
+    play -> clef = r;
+    play -> next = NULL;
+
+    if(playTime != t){
+        playCount++;
+        playTime = t;
+    }
+    play -> playTime = playCount;
+
+    if(pl -> count == 0){
+        play -> prev = NULL;
+        pl -> head = pl -> tail = play;
+    }
+    else{
+        play -> prev = pl -> tail;
+        pl -> tail -> next = play;
+        pl -> tail = play;
+    }
+
+    pl -> count++;
+}
+
+void playAll(PLAYLIST *pl){
+    PLAY *p = pl -> head;
+    while(p != NULL){
+        printf("%d: %d\n", p -> playTime, p -> played -> val);
+        p = p -> next;
+    }
+}
+
 void initRunStat(uint_fast8_t *i, int c){
     int flag = 0x1;
 
@@ -180,20 +181,21 @@ void initMode(int_fast8_t *mode, int n){
     }
 }
 
-STATUS playProgram(PROGRAM *p, PLAYLIST *pl){
+STATUS playProgram(PROGRAM *p){
     int count = p -> count;
     int value = p -> value;
     int length = p -> length;
 
+    PLAYLIST *pl;
     CODE **ptrArr = (CODE**)malloc(count * sizeof(CODE*));
     CODE *ptr;
     LINE *l = p -> line;
 
-    NOTE *lastPlayed[count], *marker[26], *temp, *add;
+    NOTE *lastPlayed[count], *marker[26], *temp;
     LOOP *loop[count];
 
     uint_fast8_t runStatus = 0x0;
-    uint8_t lock = 0x0, rptr = 0x0, rnd;
+    uint8_t rptr = 0x0, rnd;
     uint_fast64_t rtotal = 0x0, rcnt = 0x0;
 
     int_fast8_t mode[count];
@@ -351,7 +353,7 @@ STATUS playProgram(PROGRAM *p, PLAYLIST *pl){
                         }
                         else if(isdigit(ptr -> next -> c) || ptr -> next -> c == '-'){
                             int tempval = pl -> count;
-                            int rel = 0, sign = 1, i;
+                            int rel = 0, sign = 1;
 
                             if(ptr -> next -> c == '-'){
                                 sign *= -1;

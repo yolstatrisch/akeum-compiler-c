@@ -49,11 +49,6 @@ typedef struct loop{
 } LOOP;
 
 void initProg(PROGRAM*);
-void initNote(NOTE*);
-void initNoteToMin(NOTE*);
-void initMarker(NOTE**);
-
 void printLine(LINE*);
-void printProgram(PROGRAM*);
 void addLine(PROGRAM*, LINE*);
 void addToLine(LINE*, LINE*);

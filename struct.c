@@ -10,24 +10,6 @@ void initProg(PROGRAM *p){
     p -> count = 0;
 }
 
-void initNote(NOTE *n){
-    n -> val = -1;
-    n -> next = NULL;
-}
-
-void initNoteToMin(NOTE *n){
-    n = (NOTE*)malloc(sizeof(NOTE));
-    n -> val = MIN;
-    n -> next;
-}
-
-void initMarker(NOTE **n){
-    int i;
-    for(i = 0; i < 26; i++){
-        n[i] = NULL;
-    }
-}
-
 void printLine(LINE *line){
     CODE *ptr = line -> head;
 
@@ -36,22 +18,6 @@ void printLine(LINE *line){
         ptr = ptr -> next;
     }
     printf("\n");
-}
-
-void printProgram(PROGRAM *p){
-    LINE *l = p -> line;
-    CODE *c = l -> head;
-
-    while(l != NULL){
-        while(c != NULL){
-            printf("%c", c -> c);
-            c = c -> next;
-        }
-        l = l -> next;
-        if(l != NULL){
-            c = l -> head;
-        }
-    }
 }
 
 void addLine(PROGRAM *p, LINE *l){

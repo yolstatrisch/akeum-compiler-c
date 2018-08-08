@@ -1,8 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "file.h"
-#include "struct.h"
 
 void openFile(FILE **fp, char *fn){
     *fp = fopen(fn, "r");
@@ -13,7 +9,7 @@ void openFile(FILE **fp, char *fn){
 
 int readLine(FILE **fp, LINE **line){
     LINE *lineTemp;
-    CODE *codeTemp, *ptr;
+    CODE *codeTemp;
     static int num = 0;
     int r = -1;
     char c;
